@@ -2,6 +2,7 @@
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx_hal_adc.h"
 #include "det.h"
+
 static ADC_HandleTypeDef hadc1;
 
 void adc1_init(void)

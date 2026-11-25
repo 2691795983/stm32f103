@@ -137,7 +137,3 @@ void Det_ClearErrorRecords(void)
     }
 }
 
-uint8_t Det_IsInitialized(void)
-{
-    return Det_IsInitialized;
-}

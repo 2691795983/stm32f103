@@ -2,7 +2,8 @@
 #include <stdint.h>
 #include "uart1.h"
 #include "shell_port.h"
-
+#include "adc1.h"
+#include "pwm.h"
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 
@@ -14,6 +15,8 @@ int main(void)
   SystemClock_Config();
   MX_GPIO_Init();
   UART1_Init();
+	adc1_init();
+	pwm_init();
 	
 	shell_init();
 	while (1)
