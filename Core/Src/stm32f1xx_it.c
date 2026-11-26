@@ -213,5 +213,10 @@ void USART1_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+extern void PWM_TIM2_IRQHandler(void);
 
+void TIM2_IRQHandler(void)
+{
+    PWM_TIM2_IRQHandler();
+}
 /* USER CODE END 1 */

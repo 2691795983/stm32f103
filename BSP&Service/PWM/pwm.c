@@ -75,7 +75,7 @@ void pwm_init(void)
     Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_INIT, PWM_E_UNINIT);
   }
 	pwm_init_state(&pwm_channels[0], 1, "pwm IT simulation led",0,1000,0);
-	pwm_init_state(&pwm_channels[0], 1, "pwm pin PA1 output",0,1000,0);
+	pwm_init_state(&pwm_channels[1], 2, "pwm pin PA1 output",0,1000,0);
 	
 	initflag = 1;
 	
@@ -209,6 +209,14 @@ void pwm_stop(uint8_t channel_id)
 		}
 		
 }
+
+
+
+void PWM_TIM2_IRQHandler(void)
+{
+    HAL_TIM_IRQHandler(&htim2);
+}
+
 
 // software stimulate PWM
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
