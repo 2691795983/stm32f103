@@ -119,14 +119,14 @@ void cmdfunction_pwm(int argc, char* argv[])
 		}
 		else if (argc >= 2 && strcmp(argv[1], "set") == 0)
 		{
-			if (argc == 3)
+			if (argc == 4)
 			{
-					shell_pwm_setduty(argv[2]);
+					shell_pwm_setduty(argv[2],argv[3]);
 			}
 			else
 			{
 					shellWriteString(shellGetCurrent(),
-													 "Usage: pwm set <0-100>\r\n");
+													 "Usage: pwm set <1-MAX_CHANNEL_ID> <0-100>\r\n");
 			}
 		}
 		else

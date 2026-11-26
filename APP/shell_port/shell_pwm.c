@@ -22,20 +22,26 @@ long safe_str_to_long(const char *str, bool *ok) {
 }
 
 
-void shell_pwm_setduty(const char * str_duty)
+void shell_pwm_setduty(const char * str_channel_id,const char * str_duty)
 {	
 	bool is_ok = false;
-	long number_result = 0;
-	
-	number_result = safe_str_to_long(str_duty, &is_ok);
-	if (!is_ok || number_result < 0 || number_result > 100)
+	long number_duty = 0;
+	long number_id = 0;
+	number_duty = safe_str_to_long(str_duty, &is_ok);
+	if (!is_ok || number_duty < 0 || number_duty > 100)
 	{
 			shellWriteString(shellGetCurrent(), "illegal duty value\r\n");
 			return;
 	}
-
-	pwm_setduty(2,(uint8_t)number_result);
-	shellPrint(shellGetCurrent(), "pwm set duty %d%%.\n", number_result);
+	
+	number_id = safe_str_to_long(str_channel_id, &is_ok);
+	if (!is_ok || number_id < 1 || number_id > PWM1_CHANNEL_NUMBER)
+	{
+			shellWriteString(shellGetCurrent(), "illegal channel id\r\n");
+			return;
+	}
+	pwm_setduty((uint8_t)number_id,(uint8_t)number_duty);
+	shellPrint(shellGetCurrent(), "pwm set duty %d%%.\n", number_duty);
 }
 
 
