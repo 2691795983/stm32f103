@@ -95,56 +95,52 @@ void pwm_deinit(void)
 	
 void pwm_setduty(uint8_t channel_id, uint8_t duty)
 {
+
 	if(!initflag)
 	{
 		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_HW_INIT_FAILED);
 		return;
 	}
-	
-	
-	if (channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
+
+	if(channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
 	{
 		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_PARAM_CHANNEL);
 		return;
 	}
 
-	uint32_t hal_channel = 0;
-	pwm_channels[channel_id - 1].duty = duty;
-	switch(channel_id)
+	if(duty > 100)
 	{
-		case 1:
-			hal_channel = TIM_CHANNEL_1;
-		break;
-		case 2:
-			hal_channel = TIM_CHANNEL_2;
-		break;
-	}
-	
-	if(channel_id == 1)
-	{
-		if (duty == 0)
-		{
-			LED_OFF();
-			pwm_stop(channel_id);
-		}
-		else if (duty == 100)
-		{
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-			HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
-			LED_ON();
-		}
-		else
-		{
-			uint16_t tim2_compare = duty * TIM2_PERIOD / 100;
-			tim2_compare = tim2_compare < 5 ? 5 : tim2_compare;
-			tim2_compare = tim2_compare > 995 ? 995 : tim2_compare;
-			__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
-		}
-	
-
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_PARAM_DUTY);
 		return;
 	}
+
+	uint32_t hal_channel;
+	uint16_t tim2_compare;
+
+	if (channel_id == 1)
+	{
+    if (duty == 0)
+    {
+			pwm_stop(channel_id);
+      LED_OFF();
+    }
+    else if (duty == 100)
+    {
+      __HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+      HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
+      LED_ON();
+    }
+	}
+	else
+	{
+			// 硬件 PWM：PA1
+			hal_channel = TIM_CHANNEL_2;
+			tim2_compare = duty * TIM2_PERIOD / 100;
+			__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
+	}
+	pwm_channels[channel_id - 1].duty = duty;
 }
+
 
 uint8_t pwm_getduty(uint8_t channel_id)
 {
@@ -235,33 +231,30 @@ void pwm_init_state(channel_t* c ,uint8_t channel_id,	const char* name,	uint8_t 
 void pwm_start(void)
 {
 	
-if (!initflag)
-{
-	Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_INIT_FAILED);
-	return;
-}
+	if (!initflag)
+	{
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_INIT_FAILED);
+		return;
+	}
 
-if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2) != HAL_OK)
-{
-	Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_START_FAILED);
-	return;
-}
+	if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2) != HAL_OK)
+	{
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_START_FAILED);
+		return;
+	}
 
-__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
-if (HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1) != HAL_OK)
-{
-	__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-	HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_2);
+	__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+	if (HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1) != HAL_OK)
+	{
+		__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+		HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_2);
 
-	Det_ReportError(PWM_MODULE_ID,
-									PWM1_INSTANCE_ID,
-									PWM_API_Start,
-									PWM_E_HW_START_FAILED);
-	return;
-}
-	
-	pwm_channels[0].state = 1;
-	pwm_channels[1].state = 1;
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_START_FAILED);
+		return;
+	}
+		
+		pwm_channels[0].state = 1;
+		pwm_channels[1].state = 1;
 }
 
 void pwm_stop(uint8_t channel_id)
