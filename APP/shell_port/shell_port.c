@@ -94,9 +94,18 @@ void cmdfunction_pwm(int argc, char* argv[])
 			{
 				shell_pwm_off(2);
 			}
-		}else if(argc == 3 && strcmp(argv[i+1], "set") == 0)
+		}
+		else if (argc >= 2 && strcmp(argv[1], "set") == 0)
 		{
-			shell_pwm_setduty()
+			if (argc == 3)
+			{
+					shell_pwm_setduty(argv[2]);
+			}
+			else
+			{
+					shellWriteString(shellGetCurrent(),
+													 "Usage: pwm set <0-100>\r\n");
+			}
 		}
 		else
 		{

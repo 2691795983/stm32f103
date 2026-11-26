@@ -26,13 +26,16 @@ void shell_pwm_setduty(const char * str_duty)
 {	
 	bool is_ok = false;
 	long number_result = 0;
+	
 	number_result = safe_str_to_long(str_duty, &is_ok);
-	if(number_result >= 0 && number_result <= 100)
+	if (!is_ok || number_result < 0 || number_result > 100)
 	{
-		pwm_setduty(2,(uint8_t)number_result);
-		shellPrint(shellGetCurrent(), "pwm set duty %d%%.\n", number_result);
+			shellWriteString(shellGetCurrent(), "illegal duty value\r\n");
+			return;
 	}
-	shellWriteString(shellGetCurrent(), "illegal duty value");
+
+	pwm_setduty(2,(uint8_t)number_result);
+	shellPrint(shellGetCurrent(), "pwm set duty %d%%.\n", number_result);
 }
 
 
