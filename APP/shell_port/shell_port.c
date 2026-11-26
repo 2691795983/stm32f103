@@ -68,7 +68,29 @@ SHELL_EXPORT_CMD(
     get adc value
 );
 
-
+/*#include "stm32f1xx_hal.h"
+void cmdfunction_led(int argc, char* argv[])
+{
+	if(argc == 2)
+	{
+		if(strcmp(argv[1],"on") == 0)
+		{
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+		}
+		else if(strcmp(argv[1],"off") == 0)
+		{
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+		}
+	}
+}
+SHELL_EXPORT_CMD(
+    SHELL_CMD_PERMISSION(0) |
+    SHELL_CMD_TYPE(SHELL_TYPE_CMD_MAIN),
+    led,
+    cmdfunction_led,
+    led
+);
+*/
 void cmdfunction_pwm(int argc, char* argv[])
 {	
 	uint8_t i = 1;
