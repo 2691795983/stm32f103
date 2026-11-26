@@ -92,7 +92,7 @@ void pwm_deinit(void)
 void pwm_setduty(uint8_t channel_id, uint8_t duty)
 {
 	uint32_t hal_channel = 0;
-	if(0 < channel_id && channel_id < PWM1_CHANNEL_NUMBER)
+	if(0 < channel_id && channel_id <= PWM1_CHANNEL_NUMBER)
 	{
 			pwm_channels[channel_id - 1].duty = duty;
 		switch(channel_id)
@@ -164,11 +164,11 @@ void pwm_get_state(uint8_t channel_id,channel_t* c)
     }
 
 
-		c->channel_id = pwm_channels[channel_id].channel_id;
-		c->duty = pwm_channels[channel_id].duty;
-		c->frequency = pwm_channels[channel_id].frequency;
-		c->name = pwm_channels[channel_id].name;
-		c->state = pwm_channels[channel_id].state;
+		c->channel_id = pwm_channels[channel_id - 1].channel_id;
+		c->duty = pwm_channels[channel_id - 1].duty;
+		c->frequency = pwm_channels[channel_id - 1].frequency;
+		c->name = pwm_channels[channel_id - 1].name;
+		c->state = pwm_channels[channel_id - 1].state;
 		return;
 
 }
@@ -190,13 +190,13 @@ void pwm_init_state(channel_t* c ,uint8_t channel_id,	const char* name,	uint8_t 
     }
 		
 
-			if(c->channel_id == 0){ c->channel_id = channel_id;}
-			c->name = name;
-			c->duty = duty;
-			c->frequency = frequency;
-			c->state = state;
-			pwm_setduty(channel_id,duty);
-			return;
+		if(c->channel_id == 0){ c->channel_id = channel_id;}
+		c->name = name;
+		c->duty = duty;
+		c->frequency = frequency;
+		c->state = state;
+		pwm_setduty(channel_id,duty);
+		return;
 }
 
 void pwm_start(void)
@@ -209,17 +209,20 @@ void pwm_start(void)
 
 void pwm_stop(uint8_t channel_id)
 {	
-	
-		switch(channel_id)
-		{
-			case 1:
-			LED_OFF();
-				HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
-			break;
-			case 2:
-				HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_2);
-			break;
-		}
+
+	switch(channel_id)
+	{
+		case 1:
+		HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
+		pwm_channels[channel_id - 1].state = 0;
+		LED_OFF();
+
+		break;
+		case 2:
+		HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_2);
+		pwm_channels[channel_id - 1].state = 0;
+		break;
+	}
 		
 }
 
@@ -227,7 +230,7 @@ void pwm_stop(uint8_t channel_id)
 
 void PWM_TIM2_IRQHandler(void)
 {
-    HAL_TIM_IRQHandler(&htim2);
+	HAL_TIM_IRQHandler(&htim2);
 }
 
 

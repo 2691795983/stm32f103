@@ -94,6 +94,9 @@ void cmdfunction_pwm(int argc, char* argv[])
 			{
 				shell_pwm_off(2);
 			}
+		}else if(argc == 3 && strcmp(argv[i+1], "set") == 0)
+		{
+			shell_pwm_setduty()
 		}
 		else
 		{
