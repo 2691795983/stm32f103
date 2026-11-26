@@ -78,10 +78,11 @@ void pwm_init(void)
 		{
 			Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_INIT, PWM_E_UNINIT);
 		}
-		pwm_init_state(&pwm_channels[0], 1, "pwm IT simulation led",0,1000,0);
-		pwm_init_state(&pwm_channels[1], 2, "pwm pin PA1 output",0,1000,0);
-		
 		initflag = 1;
+		
+		pwm_init_state(&pwm_channels[0], 1, "pwm IT simulation led",50,1000,0);
+		pwm_init_state(&pwm_channels[1], 2, "pwm pin PA1 output",50,1000,0);
+
 	}
 }
 
@@ -116,6 +117,18 @@ void pwm_setduty(uint8_t channel_id, uint8_t duty)
 
 	uint32_t hal_channel;
 	uint16_t tim2_compare;
+	
+	switch(channel_id)
+	{
+		case 1:
+			hal_channel = TIM_CHANNEL_1;
+			break;
+		case 2:
+			hal_channel = TIM_CHANNEL_2;
+			break;
+	}
+
+	tim2_compare = duty * TIM2_PERIOD / 100;
 
 	if (channel_id == 1)
 	{
@@ -130,13 +143,14 @@ void pwm_setduty(uint8_t channel_id, uint8_t duty)
       HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
       LED_ON();
     }
+		else
+		{
+			__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
+		}
 	}
 	else
 	{
-			// 硬件 PWM：PA1
-			hal_channel = TIM_CHANNEL_2;
-			tim2_compare = duty * TIM2_PERIOD / 100;
-			__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
+		__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
 	}
 	pwm_channels[channel_id - 1].duty = duty;
 }
