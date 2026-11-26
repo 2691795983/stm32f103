@@ -25,7 +25,10 @@ void pwm_init(void);
 
 void pwm_deinit(void);
 
-void pwm_start(void);
+void pwm_on(void);
+void pwm_off(void);
+
+void pwm_start(uint8_t channel_id);
 void pwm_stop(uint8_t channel_id);
 
 void pwm_setduty(uint8_t channel, uint8_t duty); // 0%~100%

@@ -8,6 +8,7 @@
 
 static channel_t pwm_channels[PWM1_CHANNEL_NUMBER];
 static uint8_t initflag = 0;
+static uint8_t isrunning = 0;
 
 static TIM_HandleTypeDef htim2;
 #define TIM2_PERIOD  1000
@@ -86,6 +87,16 @@ void pwm_init(void)
 	}
 }
 
+void pwm_on(void)
+{
+	isrunning = 1;
+}
+void pwm_off(void)
+{
+	isrunning = 0;
+}
+
+
 void pwm_deinit(void)
 {
 	__HAL_RCC_TIM2_CLK_DISABLE();
@@ -96,10 +107,15 @@ void pwm_deinit(void)
 	
 void pwm_setduty(uint8_t channel_id, uint8_t duty)
 {
-
+	
 	if(!initflag)
 	{
-		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_HW_INIT_FAILED);
+			Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_HW_INIT_FAILED);
+		return;
+	}
+	
+	if(!isrunning)
+	{
 		return;
 	}
 
@@ -173,6 +189,10 @@ void pwm_setduty(uint8_t channel_id, uint8_t duty)
 
 uint8_t pwm_getduty(uint8_t channel_id)
 {
+	if(!isrunning)
+	{
+	return 0;
+	}
 	uint32_t hal_channel = 0;
 	if(0 < channel_id && channel_id < PWM1_CHANNEL_NUMBER)
 	{
@@ -200,6 +220,7 @@ uint8_t pwm_getduty(uint8_t channel_id)
 
 void pwm_get_state(uint8_t channel_id,channel_t* c)
 {
+	
     if(!initflag)
     {
         Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
@@ -257,64 +278,111 @@ void pwm_init_state(channel_t* c ,uint8_t channel_id,	const char* name,	uint8_t 
 		return;
 }
 
-void pwm_start(void)
+void pwm_start(uint8_t channel_id)
 {
-	
+	if(!isrunning)
+	{
+	return ;
+	}
+
 	if (!initflag)
 	{
 		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_INIT_FAILED);
 		return;
 	}
 
-	if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2) != HAL_OK)
+	/* 检查通道号 */
+	if (channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
 	{
-		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_START_FAILED);
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_PARAM_CHANNEL);
 		return;
 	}
 
-	if(pwm_channels[0].duty == 0)
+	/* 已经启动，不重复执行 */
+	if (pwm_channels[channel_id - 1].state == 1)
 	{
-			LED_OFF();
-			pwm_channels[0].state = 0;
+		return;
 	}
-	else if(pwm_channels[0].duty == 100)
-	{
-			LED_ON();
-			pwm_channels[0].state = 0;
-	}
-	else
-	{
-		__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
-		if (HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1) != HAL_OK)
-		{
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-			HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_2);
 
-			Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_START_FAILED);
-			return;
+	/* 根据通道启动对应的 PWM */
+	if (channel_id == 1)
+	{
+		/* 启动 CH1，TIM2 计数器开始运行 */
+		if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1) != HAL_OK)
+		{
+				Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
+												PWM_API_Start, PWM_E_HW_START_FAILED);
+				return;
 		}
-			
-			pwm_channels[0].state = 1;
-			pwm_channels[1].state = 1;
+
+		/* CH1 使用软件中断模拟 LED PWM */
+		if (pwm_channels[0].duty == 0)
+		{
+			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
+			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+
+			LED_OFF();
+		}
+		else if (pwm_channels[0].duty == 100)
+		{
+			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
+			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+
+			LED_ON();
+		}
+		else
+		{
+			/* 清除可能残留的中断标志 */
+			__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
+			__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
+
+			/* 开启比较中断和更新中断 */
+			__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
+			__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+		}
 	}
-		
+	else if (channel_id == 2)
+	{
+		/* 启动 CH2 硬件 PWM */
+		if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2) != HAL_OK)
+		{
+				Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
+												PWM_API_Start, PWM_E_HW_START_FAILED);
+				return;
+		}
+	}
+
+	/* 只有启动成功后才更新状态 */
+	pwm_channels[channel_id - 1].state = 1;
 }
 
 void pwm_stop(uint8_t channel_id)
 {	
+	if(!isrunning)
+	{
+	return;
+	}
 
 	switch(channel_id)
 	{
 		case 1:
-		__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-		HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
-		pwm_channels[channel_id - 1].state = 0;
-		LED_OFF();
-		break;
+			if(pwm_channels[channel_id - 1].state == 1)
+			{
+				__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+				HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
+				pwm_channels[channel_id - 1].state = 0;
+				LED_OFF();
+			}
+			break;
+
 		
 		case 2:
-		HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_2);
-		pwm_channels[channel_id - 1].state = 0;
+			if(pwm_channels[channel_id - 1].state == 1)
+			{		
+				HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_2);
+				pwm_channels[channel_id - 1].state = 0;
+			}
+
 		break;
 	}
 		

@@ -32,5 +32,5 @@
 #define PWM_E_HW_CONFIG_FAILED   0x21U
 #define PWM_E_HW_START_FAILED    0x22U
 #define PWM_E_HW_STOP_FAILED     0x23U
-
+#define PWM_E_RT_NOTRUN_FAILED     0x20U
 #endif
