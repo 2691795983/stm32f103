@@ -41,7 +41,7 @@ void shell_pwm_setduty(const char * str_channel_id,const char * str_duty)
 			return;
 	}
 	pwm_setduty((uint8_t)number_id,(uint8_t)number_duty);
-	shellPrint(shellGetCurrent(), "pwm set duty %d%%.\n", number_duty);
+	shellPrint(shellGetCurrent(), "pwm set channel:%ld  duty:%ld%%.\n", number_id,number_duty);
 }
 
 

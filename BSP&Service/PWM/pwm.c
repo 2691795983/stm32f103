@@ -63,6 +63,7 @@ void pwm_init(void)
 		sConfigOC.Pulse = 0;
 		sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
 		sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+		__HAL_TIM_ENABLE_OCxPRELOAD(&htim2,TIM_CHANNEL_1);
 		if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
 		{
 			Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_INIT, PWM_E_UNINIT);
@@ -72,6 +73,7 @@ void pwm_init(void)
 		sConfigOC.Pulse = 0;
 		sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
 		sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+		__HAL_TIM_ENABLE_OCxPRELOAD(&htim2,TIM_CHANNEL_2);
 		if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
 		{
 			Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_INIT, PWM_E_UNINIT);
@@ -93,26 +95,55 @@ void pwm_deinit(void)
 	
 void pwm_setduty(uint8_t channel_id, uint8_t duty)
 {
-	uint32_t hal_channel = 0;
-	if(0 < channel_id && channel_id <= PWM1_CHANNEL_NUMBER)
+	if(!initflag)
 	{
-			pwm_channels[channel_id - 1].duty = duty;
-		switch(channel_id)
-		{
-			case 1:
-				hal_channel = TIM_CHANNEL_1;
-			break;
-			case 2:
-				hal_channel = TIM_CHANNEL_2;
-			break;
-		}
-		uint16_t tim2_compare = duty * TIM2_PERIOD / 100;
-
-		__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_HW_INIT_FAILED);
 		return;
 	}
 	
-	Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_GetDuty, PWM_E_PARAM_CHANNEL);
+	
+	if (channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
+	{
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_PARAM_CHANNEL);
+		return;
+	}
+
+	uint32_t hal_channel = 0;
+	pwm_channels[channel_id - 1].duty = duty;
+	switch(channel_id)
+	{
+		case 1:
+			hal_channel = TIM_CHANNEL_1;
+		break;
+		case 2:
+			hal_channel = TIM_CHANNEL_2;
+		break;
+	}
+	
+	if(channel_id == 1)
+	{
+		if (duty == 0)
+		{
+			LED_OFF();
+			pwm_stop(channel_id);
+		}
+		else if (duty == 100)
+		{
+			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+			HAL_TIM_PWM_Stop_IT(&htim2, TIM_CHANNEL_1);
+			LED_ON();
+		}
+		else
+		{
+			uint16_t tim2_compare = duty * TIM2_PERIOD / 100;
+			tim2_compare = tim2_compare < 5 ? 5 : tim2_compare;
+			tim2_compare = tim2_compare > 995 ? 995 : tim2_compare;
+			__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
+		}
+	
+
+		return;
+	}
 }
 
 uint8_t pwm_getduty(uint8_t channel_id)
@@ -207,6 +238,7 @@ void pwm_start(void)
 if (!initflag)
 {
 	Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_INIT_FAILED);
+	return;
 }
 
 if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2) != HAL_OK)
