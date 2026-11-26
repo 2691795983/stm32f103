@@ -79,8 +79,8 @@ void pwm_init(void)
 		{
 			Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_INIT, PWM_E_UNINIT);
 		}
+
 		initflag = 1;
-		
 		pwm_init_state(&pwm_channels[0], 1, "pwm IT simulation led",0,1000,0);
 		pwm_init_state(&pwm_channels[1], 2, "pwm pin PA1 output",0,1000,0);
 
@@ -89,10 +89,54 @@ void pwm_init(void)
 
 void pwm_on(void)
 {
+	if (!initflag)
+	{
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_INIT_FAILED);
+		return;
+	}
+	if (isrunning)
+	{
+		return;
+	}
+	
 	isrunning = 1;
 }
 void pwm_off(void)
 {
+	if (!initflag)
+	{
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_INIT_FAILED);
+		return;
+	}
+	if (!isrunning)
+	{
+		return;
+	}
+	
+ /* 关闭 CH1 的比较中断和更新中断 */
+	__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
+	__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+
+		/* 清除 CH1 相关中断标志 */
+	__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
+	__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
+	
+		/* 关闭 CH1 和 CH2 的输出使能 */
+	TIM_CCxChannelCmd(htim2.Instance,TIM_CHANNEL_1, TIM_CCx_DISABLE);
+	TIM_CCxChannelCmd(htim2.Instance,TIM_CHANNEL_2, TIM_CCx_DISABLE);
+
+	
+	/* 停止 TIM2 计数器 */
+	__HAL_TIM_DISABLE(&htim2);
+	/* LED 设置为低电平（PC13 为低电平点亮，实际表现为熄灭需要确认） */
+	LED_OFF();
+
+	/* 更新所有通道状态 */
+	for (uint8_t i = 0; i < PWM1_CHANNEL_NUMBER; i++)
+	{
+			pwm_channels[i].state = 0;
+	}
+	/* 最后关闭模块运行标志 */
 	isrunning = 0;
 }
 
@@ -107,85 +151,100 @@ void pwm_deinit(void)
 	
 void pwm_setduty(uint8_t channel_id, uint8_t duty)
 {
+    uint32_t tim2_compare;
 	
-	if(!initflag)
-	{
-			Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_HW_INIT_FAILED);
-		return;
-	}
-	
-	if(!isrunning)
-	{
-		return;
-	}
-
-	if(channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
-	{
-		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_PARAM_CHANNEL);
-		return;
-	}
-
-	if(duty > 100)
-	{
-		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_PARAM_DUTY);
-		return;
-	}
-
-	uint32_t hal_channel;
-	uint16_t tim2_compare;
-	
-	switch(channel_id)
-	{
-		case 1:
-			hal_channel = TIM_CHANNEL_1;
-			break;
-		case 2:
-			hal_channel = TIM_CHANNEL_2;
-			break;
-	}
-
-	tim2_compare = duty * TIM2_PERIOD / 100;
-
-	if (channel_id == 1)
-	{
-    if (duty == 0)
+    /* 1. 检查初始化状态 */
+    if (!initflag)
     {
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-      LED_OFF();
-			pwm_channels[0].state = 0;
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_HW_INIT_FAILED);
+        return;
     }
-    else if (duty == 100)
+
+    /* 2. 检查模块运行状态 */
+    if (!isrunning)
     {
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-      LED_ON();
-			pwm_channels[0].state = 0;
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_RT_NOTRUN_FAILED);
+        return;
     }
-		else
-		{
-			__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
-			if(pwm_channels[0].state == 0)
-			{
-				__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
-				if(HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1) != HAL_OK)
-				{
-						__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-						Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_START_FAILED);
-						return;
-				}
-				pwm_channels[0].state = 1;
-			}
-		}
-	}
-	else
-	{
-		__HAL_TIM_SET_COMPARE(&htim2, hal_channel, tim2_compare);
-	}
+
+    /* 3. 检查通道号 */
+    if (channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
+    {
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_PARAM_CHANNEL);
+        return;
+    }
+
+    /* 4. 检查占空比范围 */
+    if (duty > 100)
+    {
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_SetDuty, PWM_E_PARAM_DUTY);
+        return;
+    }
+    /* 5. 计算比较值 */
+    tim2_compare = ((uint32_t)duty * TIM2_PERIOD) / 100U;
+    /* 6. 根据通道分别处理 */
+    if (channel_id == 1)
+    {
+        /* CH1：软件模拟 PWM */
+        /* 更新 CCR1 */
+        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, tim2_compare);
+        /* 通道尚未启动，只保存配置，不产生输出 */
+        if (pwm_channels[0].state == 0)
+        {
+            /* 不操作 LED 和中断 */
+        }
+        else
+        {
+            /* 通道已经启动，根据占空比更新输出 */
+
+            if (duty == 0)
+            {
+                /* 0%：LED 恒灭 */
+                __HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
+                __HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+
+                __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
+                __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
+
+                LED_OFF();
+            }
+            else if (duty == 100)
+            {
+                /* 100%：LED 恒亮 */
+                __HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
+                __HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+
+                __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
+                __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
+
+                LED_ON();
+            }
+            else
+            {
+                /* 1%~99%：开启软件 PWM */
+
+                /* 先设置 LED 初始状态 */
+                LED_OFF();
+
+                /* 清除残留中断标志 */
+                __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
+                __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
+
+                /* 开启比较中断和更新中断 */
+                __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
+                __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+            }
+        }
+    }
+    else if (channel_id == 2)
+    {
+			/* CH2：硬件 PWM */
+			__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, tim2_compare);
+    }
+
+	/* 7. 最后更新占空比配置 */
 	pwm_channels[channel_id - 1].duty = duty;
-	
 }
-
 
 uint8_t pwm_getduty(uint8_t channel_id)
 {
@@ -274,86 +333,90 @@ void pwm_init_state(channel_t* c ,uint8_t channel_id,	const char* name,	uint8_t 
 		c->duty = duty;
 		c->frequency = frequency;
 		c->state = state;
-		pwm_setduty(channel_id,duty);
 		return;
 }
 
 void pwm_start(uint8_t channel_id)
 {
-	if(!isrunning)
-	{
-	return ;
-	}
-
+	/* 1. 检查是否已经初始化 */
 	if (!initflag)
 	{
 		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_HW_INIT_FAILED);
 		return;
 	}
-
-	/* 检查通道号 */
+	/* 2. 检查模块是否处于运行状态 */
+	if (!isrunning)
+	{
+		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_RT_NOTRUN_FAILED);
+		return;
+	}
+	/* 3. 检查通道号 */
 	if (channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
 	{
 		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_Start, PWM_E_PARAM_CHANNEL);
 		return;
 	}
-
-	/* 已经启动，不重复执行 */
+	/* 4. 已经启动，不重复执行 */
 	if (pwm_channels[channel_id - 1].state == 1)
 	{
 		return;
 	}
-
-	/* 根据通道启动对应的 PWM */
-	if (channel_id == 1)
-	{
-		/* 启动 CH1，TIM2 计数器开始运行 */
-		if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1) != HAL_OK)
+	/* 5. 根据通道启动 PWM */
+	switch (channel_id)
+{
+		case 1:
 		{
-				Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
-												PWM_API_Start, PWM_E_HW_START_FAILED);
+				/* CH1：软件模拟 PWM */
+				/* 设置比较值 */
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1,
+						(pwm_channels[0].duty * TIM2_PERIOD) / 100);
+
+				/* 先关闭相关中断，避免启动时产生意外回调 */
+				__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
+				__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
+
+				/* 清除残留中断标志 */
+				__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
+				__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
+
+				/* 根据占空比设置 LED 初始状态 */
+				if (pwm_channels[0].duty == 0)
+				{
+						LED_OFF();
+				}
+				else if (pwm_channels[0].duty == 100)
+				{
+						LED_ON();
+				}
+				else
+				{
+						LED_OFF();
+						/* 开启比较中断和更新中断 */
+						__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
+						__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+				}
+				/* 更新通道状态 */
+				pwm_channels[0].state = 1;
+
+				/* 使能 CH1 */
+			TIM_CCxChannelCmd(htim2.Instance,TIM_CHANNEL_1, TIM_CCx_ENABLE);
+				break;
+		}
+		case 2:
+		{
+				/* CH2：硬件 PWM */
+				/* 更新通道状态 */
+				pwm_channels[1].state = 1;
+				/* 使能 CH2 */
+			TIM_CCxChannelCmd(htim2.Instance,TIM_CHANNEL_2, TIM_CCx_ENABLE);
+				break;
+		}
+		default:
 				return;
-		}
-
-		/* CH1 使用软件中断模拟 LED PWM */
-		if (pwm_channels[0].duty == 0)
-		{
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-
-			LED_OFF();
-		}
-		else if (pwm_channels[0].duty == 100)
-		{
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
-			__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-
-			LED_ON();
-		}
-		else
-		{
-			/* 清除可能残留的中断标志 */
-			__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
-			__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
-
-			/* 开启比较中断和更新中断 */
-			__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
-			__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
-		}
-	}
-	else if (channel_id == 2)
-	{
-		/* 启动 CH2 硬件 PWM */
-		if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2) != HAL_OK)
-		{
-				Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
-												PWM_API_Start, PWM_E_HW_START_FAILED);
-				return;
-		}
 	}
 
-	/* 只有启动成功后才更新状态 */
-	pwm_channels[channel_id - 1].state = 1;
+	/* 6. 确保 TIM2 计数器运行 */
+	__HAL_TIM_ENABLE(&htim2);
 }
 
 void pwm_stop(uint8_t channel_id)
@@ -388,7 +451,14 @@ void pwm_stop(uint8_t channel_id)
 		
 }
 
-
+uint8_t pwm_isrunning(void)
+{
+	if(!initflag)
+	{
+		return 0;
+	}
+	return isrunning;
+}
 
 void PWM_TIM2_IRQHandler(void)
 {

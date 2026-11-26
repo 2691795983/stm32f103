@@ -96,37 +96,49 @@ void cmdfunction_pwm(int argc, char* argv[])
 	uint8_t i = 1;
 	if(argc > 1)
 	{
-		if (strcmp(argv[i], "on") == 0) 
-		{ 
-			shell_pwm_on();
-		}else if(strcmp(argv[i], "list") == 0)
+		if(strcmp(argv[i], "list") == 0)
 		{
 			shell_pwm_list();
 		}
+		else if (strcmp(argv[i], "on") == 0) 
+		{ 
+			shell_pwm_on();
+		} 
 		else if(strcmp(argv[i], "off") == 0)
 		{
-			if( argc == 2)
-			{
-				shell_pwm_off(1);
-				shell_pwm_off(2);
-			}else if(strcmp(argv[i+1], "1") == 0)
-			{
-				shell_pwm_off(1);
-			}else if(strcmp(argv[i+1], "2") == 0)
-			{
-				shell_pwm_off(2);
-			}
+			shell_pwm_off();
 		}
-		else if (argc >= 2 && strcmp(argv[1], "set") == 0)
+		else if(strcmp(argv[i], "stop") == 0)
 		{
-			shellPrint(shellGetCurrent(), "argc = %d\r\n. argv[2]:%s, argv[3]:%s", argc, argv[2], argv[3]);
-			if (argc == 4)
+			if(argc == 3)
 			{
-					shell_pwm_setduty(argv[2],argv[3]);
+				shell_pwm_stop(argv[i+1]);
 			}
 			else
 			{
-					shellWriteString(shellGetCurrent(), "Usage: pwm set <1-MAX_CHANNEL_ID> <0-100>\r\n");
+				shellWriteString(shellGetCurrent(), "Usage: pwm stop <1~MAX_CHANNEL_ID>\r\n");
+			}
+		}
+		else if(strcmp(argv[i], "start") == 0)
+		{
+			if(argc == 3)
+			{
+				shell_pwm_start(argv[i+1]);
+			}
+			else
+			{
+				shellWriteString(shellGetCurrent(), "Usage: pwm start <1~MAX_CHANNEL_ID>\r\n");
+			}
+		}
+		else if (strcmp(argv[i], "set") == 0)
+		{
+			if (argc == 4)
+			{
+					shell_pwm_setduty(argv[i+1],argv[i+2]);
+			}
+			else
+			{
+					shellWriteString(shellGetCurrent(), "Usage: pwm set <1~MAX_CHANNEL_ID> <0~100>\r\n");
 			}
 		}
 		else

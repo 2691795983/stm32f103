@@ -36,5 +36,5 @@ uint8_t pwm_getduty(uint8_t channel);
 void pwm_get_state(uint8_t channel_id,channel_t* c);
 void pwm_init_state(channel_t* c, uint8_t channel_id,	const char* name,	uint8_t duty,	uint32_t frequency,	uint8_t state);
 
-
+uint8_t pwm_isrunning(void);
 #endif
