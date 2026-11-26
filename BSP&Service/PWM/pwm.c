@@ -80,8 +80,8 @@ void pwm_init(void)
 		}
 		initflag = 1;
 		
-		pwm_init_state(&pwm_channels[0], 1, "pwm IT simulation led",50,1000,0);
-		pwm_init_state(&pwm_channels[1], 2, "pwm pin PA1 output",50,1000,0);
+		pwm_init_state(&pwm_channels[0], 1, "pwm IT simulation led",0,1000,0);
+		pwm_init_state(&pwm_channels[1], 2, "pwm pin PA1 output",0,1000,0);
 
 	}
 }
