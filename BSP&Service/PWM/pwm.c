@@ -142,34 +142,54 @@ uint8_t pwm_getduty(uint8_t channel_id)
 
 void pwm_get_state(uint8_t channel_id,channel_t* c)
 {
-	if(initflag)
-	{
-		if(channel_id < PWM1_CHANNEL_NUMBER)
-	{
-		if( c != NULL)
-		{
-			c->channel_id = pwm_channels[channel_id].channel_id;
-			c->duty = pwm_channels[channel_id].duty;
-			c->frequency = pwm_channels[channel_id].frequency;
-			c->name = pwm_channels[channel_id].name;
-			c->state = pwm_channels[channel_id].state;
-			return;
-		}
-		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_GetState, PWM_E_PARAM_POINTER);
+    if(!initflag)
+    {
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
+                        PWM_API_GetState, PWM_E_HW_INIT_FAILED);
+        return;
+    }
+
+    if(c == NULL)
+    {
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
+                        PWM_API_GetState, PWM_E_PARAM_POINTER);
+        return;
+    }
+
+    if(channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
+    {
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
+                        PWM_API_GetState, PWM_E_PARAM_CHANNEL);
+        return;
+    }
+
+
+		c->channel_id = pwm_channels[channel_id].channel_id;
+		c->duty = pwm_channels[channel_id].duty;
+		c->frequency = pwm_channels[channel_id].frequency;
+		c->name = pwm_channels[channel_id].name;
+		c->state = pwm_channels[channel_id].state;
 		return;
-	}
-		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_GetState, PWM_E_PARAM_CHANNEL);
-	
-	}
-	Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_GetState, PWM_E_HW_INIT_FAILED);
+
 }
 
 void pwm_init_state(channel_t* c ,uint8_t channel_id,	const char* name,	uint8_t duty,	uint32_t frequency,	uint8_t state)
 {
-	if(c != NULL)
-	{
-		if(channel_id < PWM1_CHANNEL_NUMBER)
-		{
+    if(c == NULL)
+    {
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
+                        PWM_API_UpdateState, PWM_E_PARAM_POINTER);
+        return;
+    }
+
+    if(channel_id < 1 || channel_id > PWM1_CHANNEL_NUMBER)
+    {
+        Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID,
+                        PWM_API_UpdateState, PWM_E_PARAM_CHANNEL);
+        return;
+    }
+		
+
 			if(c->channel_id == 0){ c->channel_id = channel_id;}
 			c->name = name;
 			c->duty = duty;
@@ -177,13 +197,6 @@ void pwm_init_state(channel_t* c ,uint8_t channel_id,	const char* name,	uint8_t 
 			c->state = state;
 			pwm_setduty(channel_id,duty);
 			return;
-		}
-		
-		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_UpdateState, PWM_E_PARAM_CHANNEL);
-		return;
-	}
-		Det_ReportError(PWM_MODULE_ID, PWM1_INSTANCE_ID, PWM_API_UpdateState, PWM_E_PARAM_POINTER);
-
 }
 
 void pwm_start(void)
